@@ -1,0 +1,120 @@
+import threading
+from typing import Callable, Optional
+
+from PySide6.QtCore import QObject, Signal
+
+from backend.app.runtime_status import RuntimeStatus
+
+from .backend_bridge import LocalBackendBridge, SessionRequest, TranscriptionBridge
+
+
+class RealtimeController(QObject):
+    """Controla o ciclo de vida da transcricao sem bloquear a UI.
+
+    A execucao da sessao acontece em thread separada e os resultados voltam
+    para a janela por sinais Qt.
+    """
+
+    transcript_chunk = Signal(object)
+    speech_started = Signal()
+    voice_activity_changed = Signal(bool)
+    status_changed = Signal(str)
+    runtime_changed = Signal(object)
+    runtime_cleared = Signal()
+    error_raised = Signal(str)
+    session_finished = Signal(str)
+    running_changed = Signal(bool)
+
+    def __init__(
+        self,
+        bridge_factory: Optional[Callable[[], TranscriptionBridge]] = None,
+        parent: Optional[QObject] = None,
+    ):
+        super().__init__(parent)
+        self._bridge_factory = bridge_factory or LocalBackendBridge
+        self._active_bridge: Optional[TranscriptionBridge] = None
+        self._worker_thread: Optional[threading.Thread] = None
+        self._running = False
+        self._runtime_status: Optional[RuntimeStatus] = None
+
+    @property
+    def is_running(self) -> bool:
+        return self._running
+
+    @property
+    def runtime_status(self) -> Optional[RuntimeStatus]:
+        return self._runtime_status
+
+    def reset_runtime_status(self) -> None:
+        """Invalida o dispositivo ativo quando a proxima sessao sera diferente."""
+        self._runtime_status = None
+        self.runtime_cleared.emit()
+
+    def start_session(self, request: SessionRequest) -> None:
+        """Inicia uma nova sessao realtime em thread de fundo."""
+        if self._running:
+            return
+
+        self._running = True
+        self.running_changed.emit(True)
+        self.status_changed.emit("Carregando backend de transcrição...")
+
+        self._worker_thread = threading.Thread(
+            target=self._run_worker,
+            args=(request,),
+            daemon=True,
+        )
+        self._worker_thread.start()
+
+    def stop_session(self) -> None:
+        """Solicita parada da sessao em execucao."""
+        if not self._running:
+            return
+
+        self.status_changed.emit("Encerrando sessão...")
+        if self._active_bridge is not None:
+            self._active_bridge.stop()
+
+    def set_talk_active(self, active: bool) -> None:
+        """Encaminha o estado do botao de apertar para falar."""
+        if self._active_bridge is not None:
+            self._active_bridge.set_talk_active(active)
+
+    def set_microphone_muted(self, muted: bool) -> None:
+        """Muta ou reativa a captura na sessao automatica atual."""
+        if self._active_bridge is not None:
+            self._active_bridge.set_microphone_muted(muted)
+
+    def _run_worker(self, request: SessionRequest) -> None:
+        """Executa sessao e publica eventos de sucesso/erro para a UI."""
+        bridge = self._bridge_factory()
+        self._active_bridge = bridge
+
+        try:
+            final_text = bridge.run(
+                request=request,
+                on_text=self._emit_chunk,
+                on_status=self.status_changed.emit,
+                on_runtime_status=self._publish_runtime_status,
+                on_speech_start=self.speech_started.emit,
+                on_voice_activity=self.voice_activity_changed.emit,
+            )
+            self.session_finished.emit(final_text)
+            self.status_changed.emit("Sessão finalizada.")
+        except Exception as exc:
+            self.error_raised.emit(str(exc))
+            self.status_changed.emit("Sessão interrompida por erro.")
+        finally:
+            self.voice_activity_changed.emit(False)
+            self._active_bridge = None
+            self._running = False
+            self.running_changed.emit(False)
+
+    def _emit_chunk(self, chunk: object) -> None:
+        """Repassa trecho transcrito para consumo da janela."""
+        if chunk:
+            self.transcript_chunk.emit(chunk)
+
+    def _publish_runtime_status(self, status: RuntimeStatus) -> None:
+        self._runtime_status = status
+        self.runtime_changed.emit(status)
