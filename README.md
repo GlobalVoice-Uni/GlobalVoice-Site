@@ -20,6 +20,20 @@ Este projeto foi construído de forma leve e estática, sem a necessidade de fra
 ## Estrutura do Repositório
 
 ```text
+GlobalVoice-Desktop/
+├── backend/               # Módulos de captura de áudio, VAD, ASR e Tradução
+├── deploy/windows/        # Scripts de build, PyInstaller e Inno Setup
+├── docs/                  # Documentação técnica, decisões e guias
+├── experiments/           # Benchmarks de modelos e auditoria de runtime
+├── frontend/              # Interface gráfica em PySide6 e controladores
+├── requirements/          # Arquivos de lock e dependências
+├── tests/                 # Testes unitários e de integração
+├── README.md              # Este arquivo
+├── roadmap.md             # Planejamento do PFC 2
+└── run_tests.ps1          # Script para rodar a suíte de testes
+````
+## Estrutura do site
+```
 GlobalVoice-Site/
 ├── docs/
 │   ├── index.html       # Página principal
