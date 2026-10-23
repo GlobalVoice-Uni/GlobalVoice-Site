@@ -1,0 +1,49 @@
+# ========================
+# Ambientes Virtuais e Keys
+# ========================
+venv/
+.venv/
+env/
+.env
+
+# ========================
+# Cache do Python
+# ========================
+__pycache__/
+*.py[cod]
+*.pyc
+
+# ========================
+# IDEs e Editores
+# ========================
+.idea/
+.vscode/
+*.sublime-workspace
+*.sublime-project
+.DS_Store
+Thumbs.db
+
+# ========================
+lembrar.txt
+ideia.md
+RELATORIO_EVOLUCAO_REALTIME_2026-04-11.md
+AI_HANDOFF copy.md
+
+# Documentos acadêmicos mantidos apenas localmente
+docs/PFC-global-voice-V4.pdf
+docs/respostas-atualizacao-pfc2.md
+
+# ========================
+# Resultados locais de experimentos
+# ========================
+experiments/asr_baseline/results/*.json
+experiments/loopback_probe/results/*.wav
+experiments/loopback_probe/results/*.wav
+experiments/loopback_probe/results/*.wav
+
+# ========================
+# Artefatos locais de build
+# ========================
+.build/
+dist/
+.local-translation/
